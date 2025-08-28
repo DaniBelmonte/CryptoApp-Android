@@ -1,0 +1,28 @@
+#!/bin/sh
+######## KTLINT-GRADLE HOOK START ########
+CHANGED_FILES="$(git --no-pager diff --name-status --no-color --cached | awk '$1 != "D" && $2 ~ /\.kts|\.kt/ { print $2}')"
+
+if [ -z "$CHANGED_FILES" ]; then
+    echo "No Kotlin staged files."
+    exit 0
+fi;
+
+echo "Running Git Hooks over these files:"
+echo "$CHANGED_FILES"
+
+./gradlew --quiet ktlintCheck
+CHECK_LINT=$?
+
+echo "Completed ktlint run. ==> $CHECK_LINT"
+
+if [ "$CHECK_LINT" == 0 ]; then
+    ./gradlew --quiet testItgDebugUnitTest
+    RESULT=$?
+
+    echo "Se ha terminado de ejecutar test!! $RESULT"
+    exit $RESULT;
+fi;
+
+echo "ktlint check fail!"
+exit $CHECK_LINT;
+######## KTLINT-GRADLE HOOK END ########
