@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.danibelmonte.cryptoapp.presentation.screen.MainScreen
+import com.danibelmonte.cryptoapp.presentation.screen.CryptoCurrencyConverterScreen
 
 /**
  * AppNavHost handles the main navigation flow of the application.
@@ -70,7 +70,7 @@ fun AppNavHost(
     ) {
 
         composable<Screen.MainScreen> {
-            MainScreen()
+            CryptoCurrencyConverterScreen()
         }
     }
 }

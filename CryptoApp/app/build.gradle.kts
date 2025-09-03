@@ -11,18 +11,13 @@ android {
     namespace = "com.danibelmonte.cryptoapp" // Replace with your actual namespace
 }
 
-/** The convention plugins (`es.rudo.*`) already provide:
- *   All necessary Jetpack Compose dependencies (UI, Material3, Navigation, Activity, etc.)
- *   Compose compiler plugin.
- *   For dependency injection Hilt and KSP.
- *   Kotlinx Serialization JSON.
- *
- * Add modules or other app-specific dependencies.
- *
- * Example (Room):
- * dependencies {
- *     implementation(project(":profile:))
- *     implementation(libs.androidx.room.ktx)
- *     ksp(libs.androidx.room.compiler)
- * }
- */
+dependencies {
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.retrofit.v230)
+    implementation(libs.converter.gson)
+    implementation(libs.logging.interceptor.v4120)
+    implementation(libs.coil.compose)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.room.androidx.compiler)
+}
