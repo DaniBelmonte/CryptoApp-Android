@@ -2,7 +2,9 @@ package com.danibelmonte.cryptoapp.data.repository
 
 import com.danibelmonte.cryptoapp.data.dataSource.remote.CryptoCurrencyDatasource
 import com.danibelmonte.cryptoapp.data.dataSource.remote.dto.CryptoDto
+import com.danibelmonte.cryptoapp.data.dataSource.remote.dto.CurrencyQuoteDto
 import com.danibelmonte.cryptoapp.domain.entity.CryptoBo
+import com.danibelmonte.cryptoapp.domain.entity.CurrencyQuoteBo
 import com.danibelmonte.cryptoapp.domain.repository.CryptoCurrencyRepository
 import javax.inject.Inject
 
@@ -14,25 +16,33 @@ class CryptoCurrencyRepositoryImpl @Inject constructor(val datasource: CryptoCur
 
 fun CryptoDto.toDomain(): CryptoBo {
     return CryptoBo(
-        id = this.id,
-        name = this.name,
-        symbol = this.symbol,
-        slug = this.slug,
-        cmcRank = this.cmcRank,
-        numMarketPairs = this.numMarketPairs,
-        circulatingSupply = this.circulatingSupply,
-        totalSupply = this.totalSupply,
-        maxSupply = this.maxSupply,
-        lastUpdated = this.lastUpdated,
-        dateAdded = this.dateAdded,
-        tags = this.tags,
-        platform = this.platform?.toString(),
-        price = this.quote.usd.price,
-        volume24h = this.quote.usd.volume24h,
-        percentChange1h = this.quote.usd.percentChange1h,
-        percentChange24h = this.quote.usd.percentChange24h,
-        percentChange7d = this.quote.usd.percentChange7d,
-        marketCap = this.quote.usd.marketCap,
-        btcPrice = this.quote.btc?.price ?: 0.0
+        id = id,
+        name = name,
+        symbol = symbol,
+        slug = slug,
+        cmcRank = cmcRank,
+        circulatingSupply = circulatingSupply,
+        totalSupply = totalSupply,
+        maxSupply = maxSupply,
+        infiniteSupply = infiniteSupply,
+        lastUpdated = lastUpdated,
+        usd = quote.usd.toDomain(),
+        btc = quote.btc?.toDomain(),
+        eth = quote.eth?.toDomain()
+    )
+}
+
+fun CurrencyQuoteDto.toDomain() : CurrencyQuoteBo {
+    return CurrencyQuoteBo(
+        price = price,
+        volume24h = volume24h,
+        volumeChange24h = volumeChange24h,
+        percentChange1h = percentChange1h,
+        percentChange24h = percentChange24h,
+        percentChange7d = percentChange7d,
+        marketCap = marketCap,
+        marketCapDominance = marketCapDominance,
+        fullyDilutedMarketCap = fullyDilutedMarketCap,
+        lastUpdated = lastUpdated
     )
 }

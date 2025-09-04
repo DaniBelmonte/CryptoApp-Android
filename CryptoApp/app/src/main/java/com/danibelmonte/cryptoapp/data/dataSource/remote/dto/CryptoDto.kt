@@ -1,21 +1,36 @@
+// CryptoDto.kt
 package com.danibelmonte.cryptoapp.data.dataSource.remote.dto
 
 import com.google.gson.annotations.SerializedName
-import kotlinx.serialization.SerialName
 
+
+
+data class ApiResponseDto(
+    @SerializedName("data") val data: List<CryptoDto>,
+)
+
+// CryptoDto.kt (Gson)
 data class CryptoDto(
-    val id: Int,
-    val name: String,
-    val symbol: String,
-    val slug: String,
-    @SerialName("cmc_rank") val cmcRank: Int,
-    @SerialName("num_market_pairs") val numMarketPairs: Int,
-    @SerialName("circulating_supply") val circulatingSupply: Long,
-    @SerialName("total_supply") val totalSupply: Long,
-    @SerialName("max_supply") val maxSupply: Long?,
-    @SerialName("last_updated") val lastUpdated: String,
-    @SerialName("date_added") val dateAdded: String,
-    val tags: List<String>,
-    val platform: Any?,
-    val quote: QuoteDto
+    @SerializedName("id") val id: Int,
+    @SerializedName("name") val name: String,
+    @SerializedName("symbol") val symbol: String,
+    @SerializedName("slug") val slug: String,
+    @SerializedName("cmc_rank") val cmcRank: Int? = null,
+
+    @SerializedName("num_market_pairs") val numMarketPairs: Int? = null,
+
+    @SerializedName("circulating_supply") val circulatingSupply: Double? = null,
+    @SerializedName("total_supply") val totalSupply: Double? = null,
+    @SerializedName("max_supply") val maxSupply: Double? = null,
+
+    @SerializedName("infinite_supply") val infiniteSupply: Boolean? = null,
+    @SerializedName("last_updated") val lastUpdated: String? = null,
+    @SerializedName("date_added") val dateAdded: String? = null,
+    @SerializedName("tags") val tags: List<String> = emptyList(),
+    @SerializedName("platform") val platform: Any? = null,
+
+    @SerializedName("self_reported_circulating_supply") val selfReportedCirculatingSupply: Double? = null,
+    @SerializedName("self_reported_market_cap") val selfReportedMarketCap: Double? = null,
+
+    @SerializedName("quote") val quote: QuoteDto
 )
