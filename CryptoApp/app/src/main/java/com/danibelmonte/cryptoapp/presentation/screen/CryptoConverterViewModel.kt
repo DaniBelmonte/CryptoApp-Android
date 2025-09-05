@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.danibelmonte.cryptoapp.domain.entity.CryptoBo
 import com.danibelmonte.cryptoapp.domain.useCase.CryptoCurrencyUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.time.delay
 import javax.inject.Inject
 
 
@@ -32,6 +34,11 @@ class CryptoConverterViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UiState())
+    private val REFRESH_SECONDS = 120
+
+    private val _secondsLeft = MutableStateFlow(REFRESH_SECONDS)
+    val secondsLeft = _secondsLeft.asStateFlow()
+
     val uiState = _uiState.asStateFlow()
 
     init {
@@ -62,17 +69,6 @@ class CryptoConverterViewModel @Inject constructor(
         updateConversion()
     }
 
-    fun swapCurrencies() {
-        _uiState.update { state ->
-            state.copy(
-                fromCrypto = state.toCrypto,
-                toCrypto = state.fromCrypto,
-                amount = state.convertedAmount.ifEmpty { "0" },
-                convertedAmount = state.amount
-            )
-        }
-    }
-
     fun onFromDropdownExpanded(expanded: Boolean) {
         _uiState.update { it.copy(isFromDropdownExpanded = expanded) }
     }
@@ -91,17 +87,58 @@ class CryptoConverterViewModel @Inject constructor(
     }
 
     fun setFrom(symbol: String) {
-        val current = _uiState.value
-        val picked = current.cryptos.find { it.symbol.equals(symbol, ignoreCase = true) }
-        if (picked != null) _uiState.update { it.copy(fromCrypto = picked) }
+        val picked = _uiState.value.cryptos.find { it.symbol.equals(symbol, true) } ?: return
+        _uiState.update { it.copy(fromCrypto = picked) }
     }
 
     fun setTo(symbol: String) {
-        val current = _uiState.value
-        val picked = current.cryptos.find { it.symbol.equals(symbol, ignoreCase = true) }
-        if (picked != null) _uiState.update { it.copy(toCrypto = picked) }
+        val picked = _uiState.value.cryptos.find { it.symbol.equals(symbol, true) } ?: return
+        _uiState.update { it.copy(toCrypto = picked) }
     }
 
+    fun swapCurrencies() {
+        val s = _uiState.value
+        _uiState.update { it.copy(fromCrypto = s.toCrypto, toCrypto = s.fromCrypto) }
+    }
+    fun startAutoRefresh() {
+        viewModelScope.launch {
+            while (true) {
+                delay(1_000)
+                val next = _secondsLeft.value - 1
+                if (next <= 0) {
+                    safeRefresh()
+                    _secondsLeft.value = REFRESH_SECONDS
+                } else {
+                    _secondsLeft.value = next
+                }
+            }
+        }
+    }
+
+    private fun safeRefresh() {
+        viewModelScope.launch {
+            runCatching { useCase.getCryptoList() }
+                .onSuccess { list ->
+                    _uiState.update { st ->
+                        val newList = list.toList()
+                        val remappedFrom = st.fromCrypto?.symbol?.let { sym ->
+                            newList.find { it.symbol.equals(sym, ignoreCase = true) }
+                        } ?: newList.getOrNull(0)
+                        val remappedTo = st.toCrypto?.symbol?.let { sym ->
+                            newList.find { it.symbol.equals(sym, ignoreCase = true) }
+                        } ?: newList.getOrNull(1)
+                        st.copy(
+                            cryptos = newList,
+                            fromCrypto = remappedFrom,
+                            toCrypto = remappedTo
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
 
     private fun updateConversion() {
         val state = _uiState.value
@@ -114,7 +151,6 @@ class CryptoConverterViewModel @Inject constructor(
             return
         }
 
-        // Convert through USD as intermediate currency
         val amountInUsd = amount * fromCrypto.usd.price
         val convertedAmount = if (toCrypto.usd.price > 0) amountInUsd / toCrypto.usd.price else 0.0
 

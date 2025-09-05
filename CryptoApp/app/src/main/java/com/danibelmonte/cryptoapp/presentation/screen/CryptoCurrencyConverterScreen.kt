@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextButton
@@ -31,6 +32,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danibelmonte.cryptoapp.presentation.viewmodel.CryptoPickerViewModel
 import com.danielbelmonte.cryptoapp.presentation.screen.CryptoConverterViewModel
+import java.text.NumberFormat
+import java.util.Locale
+import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,20 +46,57 @@ fun CryptoCurrencyConverterScreen(
     val cardBg = Color(0xFF1B1B1B)
     val cardStroke = Color(0xFF2A2A2A)
     val hint = Color(0xFF9E9E9E)
-    val accent = Color(0xFFE59A2F) // button
+    val accent = Color(0xFFE59A2F)
 
-    // UI state for dialogs / sheets
-    var showEditFrom by remember { mutableStateOf(false) }
-    var showEditTo by remember { mutableStateOf(false) }
-    // showFromPicker and showToPicker are menus now
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
 
-    var fromAmount by remember { mutableStateOf("23.4") }
-    var toAmount by remember { mutableStateOf("0.059") }
+    var fromAmount by remember { mutableStateOf("") }
+    var toAmount by remember { mutableStateOf("") }
 
     val fromSymbol: String = uiState.fromCrypto?.symbol ?: "--"
     val toSymbol: String = uiState.toCrypto?.symbol ?: "--"
+
+    val fromPrice = uiState.fromCrypto?.usd?.price ?: 0.0
+    val toPrice = uiState.toCrypto?.usd?.price ?: 0.0
+
+    fun formatUsd(value: Double): String = NumberFormat.getCurrencyInstance(Locale.US).format(value)
+
+    fun parseAmount(text: String): Double {
+        val clean = text
+            .replace("$", "")
+            .replace(",", "")
+            .replace(" ", "")
+        return clean.toDoubleOrNull() ?: 0.0
+    }
+
+    fun formatNumber(value: Double, maxFraction: Int = 8): String {
+        val pattern = buildString {
+            append("#,##0")
+            if (maxFraction > 0) {
+                append(".")
+                repeat(maxFraction) { append("#") }
+            }
+        }
+        val df = DecimalFormat(pattern)
+        return df.format(value)
+    }
+
+    LaunchedEffect(fromAmount, fromPrice, toPrice) {
+        toAmount = if (toPrice <= 0.0) {
+            "--"
+        } else {
+            val fromQty = parseAmount(fromAmount)
+            val result = fromQty * (fromPrice / toPrice)
+            formatNumber(result)
+        }
+    }
+    LaunchedEffect(Unit) { viewModel.startAutoRefresh() }
+    LaunchedEffect(fromSymbol, fromPrice) {
+        if (fromAmount.isBlank() || fromAmount == "") {
+            fromAmount = if (fromPrice == 0.0) "" else ("$fromPrice")
+        }
+    }
 
     Scaffold(
     ) { inner ->
@@ -69,7 +110,6 @@ fun CryptoCurrencyConverterScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // FROM card + dropdown menu
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -77,13 +117,14 @@ fun CryptoCurrencyConverterScreen(
             ) {
                 CoinAmountCard(
                     amount = fromAmount,
-                    onAmountClick = { showEditFrom = true },
-                    approxFiat = "~\$2,029",
+                    onAmountChange = { fromAmount = it },
+                    isEditable = true,
+                    approxFiat = formatUsd(fromPrice),
                     symbol = fromSymbol,
-                    balance = "Bal: 28.29",
                     onSymbolClick = { showFromPicker = true },
                     cardBg = cardBg,
-                    cardStroke = cardStroke
+                    cardStroke = cardStroke,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
                 DropdownMenu(
@@ -98,7 +139,7 @@ fun CryptoCurrencyConverterScreen(
                         DropdownMenuItem(
                             text = { Text("${coin.symbol} — ${coin.name}") },
                             onClick = {
-                                viewModel.setTo(coin.symbol)
+                                viewModel.setFrom(coin.symbol)
                                 showFromPicker = false
                             }
                         )
@@ -106,7 +147,6 @@ fun CryptoCurrencyConverterScreen(
                 }
             }
 
-            // Swap icon between cards
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -120,7 +160,7 @@ fun CryptoCurrencyConverterScreen(
                     shape = CircleShape
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PlayArrow,
+                        imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
                         tint = accent,
                         modifier = Modifier.padding(6.dp)
@@ -128,7 +168,6 @@ fun CryptoCurrencyConverterScreen(
                 }
             }
 
-            // TO card + dropdown menu
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -136,13 +175,14 @@ fun CryptoCurrencyConverterScreen(
             ) {
                 CoinAmountCard(
                     amount = toAmount,
-                    onAmountClick = { showEditTo = true },
-                    approxFiat = "~\$56,483",
+                    onAmountChange = {},
+                    isEditable = false,
+                    approxFiat = formatUsd(toPrice),
                     symbol = toSymbol,
-                    balance = null,
                     onSymbolClick = { showToPicker = true },
                     cardBg = cardBg,
-                    cardStroke = cardStroke
+                    cardStroke = cardStroke,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
                 DropdownMenu(
@@ -170,12 +210,12 @@ fun CryptoCurrencyConverterScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // Swap button
             Button(
                 onClick = {
                     val tmpAmount = fromAmount
                     fromAmount = toAmount
                     toAmount = tmpAmount
+                    viewModel.swapCurrencies()
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -195,104 +235,27 @@ fun CryptoCurrencyConverterScreen(
             ) {
                 Text("⏱", color = hint, fontSize = 14.sp)
                 Spacer(Modifier.width(8.dp))
-                Text("~2mins processing time", color = hint, fontSize = 14.sp)
-            }
-
-            // ===== Edit amount dialogs =====
-            if (showEditFrom) {
-                EditAmountDialog(
-                    title = "Edit FROM amount",
-                    current = fromAmount,
-                    onDismiss = { showEditFrom = false },
-                    onConfirm = { new -> fromAmount = new; showEditFrom = false }
-                )
-            }
-            if (showEditTo) {
-                EditAmountDialog(
-                    title = "Edit TO amount",
-                    current = toAmount,
-                    onDismiss = { showEditTo = false },
-                    onConfirm = { new -> toAmount = new; showEditTo = false }
+                val secondsLeft by viewModel.secondsLeft.collectAsStateWithLifecycle()
+                Text(
+                     "refresh in ${secondsLeft}s", color = hint
                 )
             }
         }
-    }
-}
 
-
-@Composable
-private fun EditAmountDialog(
-    title: String,
-    current: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
-    var text by remember { mutableStateOf(current) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = { onConfirm(text) }) { Text("OK") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-        title = { Text(title) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { new ->
-                    // allow only digits and decimal separator
-                    if (new.isEmpty() || new.matches(Regex("^[0-9]*([.,][0-9]*)?$"))) {
-                        text = new.replace(',', '.')
-                    }
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true
-            )
-        }
-    )
-}
-
-@Composable
-private fun CryptoListPicker(
-    items: List<com.danibelmonte.cryptoapp.domain.entity.CryptoBo>,
-    onPick: (com.danibelmonte.cryptoapp.domain.entity.CryptoBo) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Text("Select a coin", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(12.dp))
-        items.forEach { coin ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onPick(coin) }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF1677FF))
-                )
-                Spacer(Modifier.width(8.dp))
-                Text("${coin.symbol} — ${coin.name}", color = Color.White)
-            }
-        }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
 @Composable
 private fun CoinAmountCard(
     amount: String,
-    onAmountClick: () -> Unit,
+    onAmountChange: (String) -> Unit,
+    isEditable: Boolean,
     approxFiat: String,
     symbol: String,
-    balance: String?,
     onSymbolClick: () -> Unit,
     cardBg: Color,
-    cardStroke: Color
+    cardStroke: Color,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
 ) {
     Surface(
         modifier = Modifier
@@ -307,19 +270,35 @@ private fun CoinAmountCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = amount,
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Medium
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { new ->
+                        if (isEditable) {
+                            onAmountChange(new)
+                        }
+                    },
+                    readOnly = !isEditable,
+                    singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        cursorColor = Color.White
+                    ),
+                    keyboardOptions = keyboardOptions
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(approxFiat, color = Color(0xFF8E8E8E), fontSize = 12.sp)
                     Spacer(Modifier.weight(1f))
-                    if (balance != null) {
-                        Text(balance, color = Color(0xFF8E8E8E), fontSize = 12.sp, overflow = TextOverflow.Ellipsis)
-                    }
                 }
             }
 
@@ -339,7 +318,9 @@ private fun CoinChip(symbol: String, onClick: () -> Unit) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .clickable { onClick() }
+                .clickable {
+                    onClick()
+                }
                 .padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
             Box(
